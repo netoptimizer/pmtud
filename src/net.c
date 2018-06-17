@@ -120,9 +120,10 @@ void unsetup_pcap(pcap_t *pcap, const char *iface, struct pcap_stat *stats)
 int setup_raw(const char *iface)
 {
 	int r;
-	int s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	/* Raw socket with proto=0, will not capture packets before bind() */
+	int s = socket(PF_PACKET, SOCK_RAW, 0);
 	if (s < 0) {
-		PFATAL("socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))");
+		PFATAL("socket(PF_PACKET, SOCK_RAW, 0)");
 	}
 
 	struct ifreq s_ifr;
@@ -136,7 +137,10 @@ int setup_raw(const char *iface)
 	struct sockaddr_ll my_addr;
 	memset(&my_addr, 0, sizeof(my_addr));
 	my_addr.sll_family = AF_PACKET;
-	my_addr.sll_protocol = htons(ETH_P_ALL);
+	/* In case NFLOG is used for RX, instruct RAW/PF_PACKET socket, to
+	 * not listen to any protocols (by passing protocol argument zero)
+	 */
+	my_addr.sll_protocol = 0;
 	my_addr.sll_ifindex = s_ifr.ifr_ifindex;
 	r = bind(s, (struct sockaddr *)&my_addr, sizeof(my_addr));
 	if (r != 0) {
